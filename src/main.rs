@@ -1,4 +1,7 @@
+mod network;
+
 #[tokio::main]
 async fn main() {
-    println!("Hello, world!");
+
+    network::listen_tcp("0.0.0.0:8080").await;
 }
