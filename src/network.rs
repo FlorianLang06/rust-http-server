@@ -1,5 +1,7 @@
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio::net::TcpListener;
+use crate::request;
+
 
 pub async fn listen_tcp(addr: &str) {
     let listener = match TcpListener::bind(addr).await {
@@ -26,6 +28,7 @@ pub async fn listen_tcp(addr: &str) {
         let mut reader = BufReader::new(read_half);
         let mut writer = BufWriter::new(write_half);
 
+        let mut lines = Vec::<String>::new();
         loop {
             let mut line = String::new();
 
@@ -39,7 +42,25 @@ pub async fn listen_tcp(addr: &str) {
                 break;
             }
             if line == "\r\n" {
-                let content = "<html><body>test</body></html>\r\n".as_bytes();
+                print!("{}", lines[0]);
+                let mut split = lines[0].split(" ");
+                let method = match split.next() {
+                    None => return,
+                    Some(m) => m.to_string(),
+                };
+                let path = match split.next() {
+                    None => return,
+                    Some(p) => p.to_string()
+                };
+                let version = match split.next() {
+                    None => return,
+                    Some(v) => v.to_string(),
+                };
+
+                let request = request::Request::new(method, path, version);
+                println!("{:?}", request);
+
+                let content = "<html><body><b>test</b></body></html>\r\n".as_bytes();
                 let _ = writer.write("HTTP/1.1 200 OK\r\n".as_bytes()).await;
                 let _ = writer.write(format!("Content-Length: {}\r\n", content.len()).as_bytes()).await;
                 let _ = writer.write("Content-Type: text/html\r\n".as_bytes()).await;
@@ -48,8 +69,8 @@ pub async fn listen_tcp(addr: &str) {
                 let _ = writer.flush().await;
                 break;
             }
-
-            print!("{}", line);
+            lines.push(line);
+            //print!("{}", line);
         }
     }
 }
