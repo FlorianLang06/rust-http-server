@@ -1,18 +1,21 @@
+use std::fmt::format;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio::net::tcp::OwnedWriteHalf;
 use tokio::net::TcpListener;
+use crate::config::Config;
 
 
-pub async fn listen_tcp(addr: &str) {
-    let listener = match TcpListener::bind(addr).await {
+pub async fn listen_tcp(config: Config) {
+    let addr  = format!("{}:{}", config.server_ip(), config.port());
+    let listener = match TcpListener::bind(&addr).await {
         Ok(l) => l,
         Err(err) => {
-            println!("Failed to bind on {} Message: {}", addr, err);
+            println!("Failed to bind on {} Message: {}", &addr, err);
             return;
         }
     };
 
-    println!("Listening TCP on {}", addr);
+    println!("Listening TCP on {}", &addr);
 
     loop {
         let stream = match listener.accept().await {
@@ -42,7 +45,7 @@ pub async fn listen_tcp(addr: &str) {
                 break;
             }
             if line == "\r\n" {
-                print!("{}", lines[0]);
+                //print!("{}", lines[0]);
                 let mut split = lines[0].split(" ");
                 let method = match split.next() {
                     None => return,
