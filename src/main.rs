@@ -1,6 +1,4 @@
 mod network;
-mod request;
-
 #[tokio::main]
 async fn main() {
 
