@@ -1,4 +1,3 @@
-use std::fmt::format;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio::net::tcp::OwnedWriteHalf;
 use tokio::net::TcpListener;
