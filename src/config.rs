@@ -18,6 +18,9 @@ impl Config {
     pub fn port(&self) -> u16 {
         self.port
     }
+    pub fn sites(&self) -> &Vec<ConfigSites> {
+        &self.sites
+    }
 }
 
 pub fn load_config() -> Config {

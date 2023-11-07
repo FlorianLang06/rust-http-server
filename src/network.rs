@@ -1,11 +1,11 @@
+use crate::config::Config;
+use crate::file;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio::net::tcp::OwnedWriteHalf;
 use tokio::net::TcpListener;
-use crate::config::Config;
-
 
 pub async fn listen_tcp(config: Config) {
-    let addr  = format!("{}:{}", config.server_ip(), config.port());
+    let addr = format!("{}:{}", config.server_ip(), config.port());
     let listener = match TcpListener::bind(&addr).await {
         Ok(l) => l,
         Err(err) => {
@@ -20,8 +20,8 @@ pub async fn listen_tcp(config: Config) {
         let stream = match listener.accept().await {
             Err(err) => {
                 println!("Failed to accept connection: {}", err);
-                continue
-            },
+                continue;
+            }
             Ok((stream, _)) => stream,
         };
 
@@ -52,7 +52,7 @@ pub async fn listen_tcp(config: Config) {
                 };
                 let path = match split.next() {
                     None => return,
-                    Some(p) => p.to_string()
+                    Some(p) => p.to_string(),
                 };
                 let version = match split.next() {
                     None => return,
@@ -60,12 +60,10 @@ pub async fn listen_tcp(config: Config) {
                 };
 
                 let request = HttpRequest::new(method, path, version);
-                let response = handle_request(request);
+                let response = handle_request(request, &config);
                 write_response(response, &mut writer).await;
 
                 //let content = "<html><body><b>test</b></body></html>\r\n".as_bytes();
-
-
 
                 break;
             }
@@ -75,26 +73,62 @@ pub async fn listen_tcp(config: Config) {
     }
 }
 
-fn handle_request(request: HttpRequest) -> HttpResponse {
+fn handle_request(request: HttpRequest, config: &Config) -> HttpResponse {
     if request.method != String::from("GET") {
         return HttpResponse::method_not_allowed(request.version);
     }
 
-    if request.path == String::from("/") {
-        return HttpResponse::ok(request.version, Some(String::from("<html><body><b>test</b></body></html>")));
-    }
+    let phy_path = match physical_path(&request, config) {
+        Some(p) => p,
+        None => return HttpResponse::not_found(request.version),
+    };
 
-    HttpResponse::not_found(request.version)
+    let file_content = match file::load_file(phy_path) {
+        Ok(c) => c,
+        Err(err) => {
+            println!("{}", err);
+            return HttpResponse::not_found(request.version);
+        }
+    };
+    HttpResponse::ok(
+        request.version,
+        Some(file_content),
+    )
+}
+
+fn physical_path(request: &HttpRequest, config: &Config) -> Option<String> {
+    let sites = config.sites();
+    for site in sites {
+        let hostname = site.hostname();
+        if hostname.trim() == String::from("*") {
+            let phy_path = match site.physical_path() {
+                Some(p) => p,
+                None => return None,
+            };
+            return Some(phy_path + &request.path);
+        }
+    }
+    return None;
 }
 
 async fn write_response(response: HttpResponse, writer: &mut BufWriter<OwnedWriteHalf>) {
-    let _ = writer.write(format!("{} {} {}\r\n", response.version, response.status, response.status_message).as_bytes()).await;
+    let _ = writer
+        .write(
+            format!(
+                "{} {} {}\r\n",
+                response.version, response.status, response.status_message
+            )
+            .as_bytes(),
+        )
+        .await;
     if response.body.is_some() {
         let body = match response.body {
             None => return,
             Some(b) => b,
         };
-        let _ = writer.write(format!("Content-Length: {}\r\n", body.len()).as_bytes()).await;
+        let _ = writer
+            .write(format!("Content-Length: {}\r\n", body.len()).as_bytes())
+            .await;
         let _ = writer.write("Content-Type: text/html\r\n".as_bytes()).await;
         let _ = writer.write("\r\n".as_bytes()).await;
         let _ = writer.write(body.as_bytes()).await;
@@ -117,7 +151,7 @@ impl HttpRequest {
         Self {
             method,
             path,
-            version
+            version,
         }
     }
 }
@@ -136,7 +170,7 @@ impl HttpResponse {
             version,
             status,
             status_message,
-            body
+            body,
         }
     }
 
