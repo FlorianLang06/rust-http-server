@@ -83,7 +83,7 @@ fn handle_request(request: HttpRequest, config: &Config) -> HttpResponse {
         None => return HttpResponse::not_found(request.version),
     };
 
-    let file_content = match file::load_file(phy_path) {
+    let (file_content, content_type) = match file::load_file(phy_path) {
         Ok(c) => c,
         Err(err) => {
             println!("{}", err);
@@ -93,6 +93,7 @@ fn handle_request(request: HttpRequest, config: &Config) -> HttpResponse {
     HttpResponse::ok(
         request.version,
         Some(file_content),
+        content_type,
     )
 }
 
@@ -129,7 +130,11 @@ async fn write_response(response: HttpResponse, writer: &mut BufWriter<OwnedWrit
         let _ = writer
             .write(format!("Content-Length: {}\r\n", body.len()).as_bytes())
             .await;
-        let _ = writer.write("Content-Type: text/html\r\n".as_bytes()).await;
+        let content_type = match response.content_type {
+            Some(c) => c,
+            None => String::from("text/plain"),
+        };
+        let _ = writer.write(format!("Content-Type: {}\r\n", content_type).as_bytes()).await;
         let _ = writer.write("\r\n".as_bytes()).await;
         let _ = writer.write(body.as_bytes()).await;
     } else {
@@ -162,27 +167,29 @@ pub struct HttpResponse {
     status: u16,
     status_message: String,
     body: Option<String>,
+    content_type: Option<String>
 }
 
 impl HttpResponse {
-    fn new(version: String, status: u16, status_message: String, body: Option<String>) -> Self {
+    fn new(version: String, status: u16, status_message: String, body: Option<String>, content_type: Option<String>) -> Self {
         Self {
             version,
             status,
             status_message,
             body,
+            content_type
         }
     }
 
-    fn ok(version: String, body: Option<String>) -> Self {
-        Self::new(version, 200, String::from("Ok"), body)
+    fn ok(version: String, body: Option<String>, content_type: Option<String>) -> Self {
+        Self::new(version, 200, String::from("Ok"), body, content_type)
     }
 
     fn method_not_allowed(version: String) -> Self {
-        Self::new(version, 405, String::from("Method not Allowed"), None)
+        Self::new(version, 405, String::from("Method not Allowed"), None, None)
     }
 
     fn not_found(version: String) -> Self {
-        Self::new(version, 404, String::from("Not Found"), None)
+        Self::new(version, 404, String::from("Not Found"), None, None)
     }
 }
