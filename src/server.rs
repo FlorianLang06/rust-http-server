@@ -134,9 +134,10 @@ async fn write_response(response: HttpResponse, writer: &mut BufWriter<OwnedWrit
             Some(c) => c,
             None => String::from("text/plain"),
         };
+
         let _ = writer.write(format!("Content-Type: {}\r\n", content_type).as_bytes()).await;
         let _ = writer.write("\r\n".as_bytes()).await;
-        let _ = writer.write(body.as_bytes()).await;
+        let _ = writer.write(body.as_slice()).await;
     } else {
         let _ = writer.write("\r\n".as_bytes()).await;
     }
@@ -166,12 +167,12 @@ pub struct HttpResponse {
     version: String,
     status: u16,
     status_message: String,
-    body: Option<String>,
+    body: Option<Vec<u8>>,
     content_type: Option<String>
 }
 
 impl HttpResponse {
-    fn new(version: String, status: u16, status_message: String, body: Option<String>, content_type: Option<String>) -> Self {
+    fn new(version: String, status: u16, status_message: String, body: Option<Vec<u8>>, content_type: Option<String>) -> Self {
         Self {
             version,
             status,
@@ -181,7 +182,7 @@ impl HttpResponse {
         }
     }
 
-    fn ok(version: String, body: Option<String>, content_type: Option<String>) -> Self {
+    fn ok(version: String, body: Option<Vec<u8>>, content_type: Option<String>) -> Self {
         Self::new(version, 200, String::from("Ok"), body, content_type)
     }
 

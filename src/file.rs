@@ -1,6 +1,6 @@
-use std::fs;
+use std::{fs, io::{BufReader, Read}};
 
-pub fn load_file(path: String) -> Result<(String, Option<String>), String> {
+pub fn load_file(path: String) -> Result<(Vec<u8>, Option<String>), String> {
 
     let mut path = path;
     
@@ -8,12 +8,19 @@ pub fn load_file(path: String) -> Result<(String, Option<String>), String> {
         path = path + "index.html";
     }
 
-    let file_content = match fs::read_to_string(&path) {
-        Ok(c) => c,
+    let file = match fs::File::open(&path) {
+        Ok(f) => f,
+        Err(err) => return Err(err.to_string()),
+    };
+    let mut reader = BufReader::new(file);
+    let mut buffer = Vec::<u8>::new();
+
+    match reader.read_to_end(&mut buffer) {
+        Ok(count) => count,
         Err(err) => return Err(err.to_string()),
     };
 
-    return Ok((file_content, content_type(&path)));
+    return Ok((buffer, content_type(&path)));
 }
 
 fn content_type(path: &String) -> Option<String> {
