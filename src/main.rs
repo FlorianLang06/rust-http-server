@@ -1,4 +1,4 @@
-mod network;
+mod server;
 mod config;
 mod file;
 
@@ -7,5 +7,5 @@ async fn main() {
 
     let config = config::load_config();
 
-    network::listen_tcp(config).await;
+    server::listen_tcp(config).await;
 }
