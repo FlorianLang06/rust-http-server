@@ -44,7 +44,6 @@ pub async fn listen_tcp(config: Config) {
                 break;
             }
             if line == "\r\n" {
-                //print!("{}", lines[0]);
                 let mut split = lines[0].split(" ");
                 let method = match split.next() {
                     None => return,
@@ -59,7 +58,24 @@ pub async fn listen_tcp(config: Config) {
                     Some(v) => v.trim().to_string(),
                 };
 
-                let request = HttpRequest::new(method, path, version);
+                let mut headers = Vec::<Header>::new();
+                for i in 1..lines.len() {
+                    let mut  split = lines[i].split(": ");
+
+                    let key = match split.next() {
+                        Some(k) => k.to_string(),
+                        None => continue,
+                    };
+
+                    let value = match split.next() {
+                        Some(v) => v.to_string(),
+                        None => continue,
+                    };
+
+                    headers.push(Header::new(key, value));
+                }
+
+                let request = HttpRequest::new(method, path, version, headers);
                 let response = handle_request(request, &config);
                 write_response(response, &mut writer).await;
 
@@ -101,7 +117,7 @@ fn physical_path(request: &HttpRequest, config: &Config) -> Option<String> {
     let sites = config.sites();
     for site in sites {
         let hostname = site.hostname();
-        if hostname.trim() == String::from("*") {
+        if hostname.trim() == "*" || (request.host().is_some() && hostname.trim() == request.host().unwrap().trim()) {
             let phy_path = match site.physical_path() {
                 Some(p) => p,
                 None => return None,
@@ -150,14 +166,24 @@ pub struct HttpRequest {
     method: String,
     path: String,
     version: String,
+    headers: Vec<Header>
 }
 
 impl HttpRequest {
-    pub fn new(method: String, path: String, version: String) -> Self {
+    pub fn new(method: String, path: String, version: String, headers: Vec<Header>) -> Self {
         Self {
             method,
             path,
             version,
+            headers
+        }
+    }
+
+    pub fn host(&self) -> Option<String> {
+        let host = self.headers.iter().find(|x| x.key == "Host");
+        match host {
+            Some(h) => Some(h.value.clone()),
+            None => None,
         }
     }
 }
@@ -192,5 +218,21 @@ impl HttpResponse {
 
     fn not_found(version: String) -> Self {
         Self::new(version, 404, String::from("Not Found"), None, None)
+    }
+}
+
+#[derive(Debug)]
+pub struct Header {
+    key: String,
+    value: String
+}
+
+
+impl Header {
+    fn new(key: String, value: String) -> Self {
+        Self {
+            key,
+            value
+        }
     }
 }
