@@ -1,3 +1,4 @@
+use log::info;
 use crate::config::Config;
 use crate::file;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter};
@@ -74,9 +75,14 @@ pub async fn listen_tcp(config: Config) {
 
                     headers.push(Header::new(key, value));
                 }
+                let log_method = method.clone();
+                let log_path = path.clone();
 
                 let request = HttpRequest::new(method, path, version, headers);
                 let response = handle_request(request, &config);
+                
+                info!("{} {} - Response: {} {}", log_method, log_path, &response.status, &response.status_message);
+                
                 write_response(response, &mut writer).await;
 
                 //let content = "<html><body><b>test</b></body></html>\r\n".as_bytes();
