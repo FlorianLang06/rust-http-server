@@ -101,8 +101,7 @@ fn handle_request(request: HttpRequest, config: &Config) -> HttpResponse {
 
     let (file_content, content_type) = match file::load_file(phy_path) {
         Ok(c) => c,
-        Err(err) => {
-            println!("{}", err);
+        Err(_) => {
             return HttpResponse::not_found(request.version);
         }
     };
@@ -146,10 +145,7 @@ async fn write_response(response: HttpResponse, writer: &mut BufWriter<OwnedWrit
         let _ = writer
             .write(format!("Content-Length: {}\r\n", body.len()).as_bytes())
             .await;
-        let content_type = match response.content_type {
-            Some(c) => c,
-            None => String::from("text/plain"),
-        };
+        let content_type = response.content_type.unwrap_or_else(|| String::from("text/plain"));
 
         let _ = writer.write(format!("Content-Type: {}\r\n", content_type).as_bytes()).await;
         let _ = writer.write("\r\n".as_bytes()).await;
